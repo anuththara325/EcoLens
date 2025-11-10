@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EO-Climate Resilience Dashboard - Team EcoLens</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Feather icons -->
+  <script src="https://unpkg.com/feather-icons"></script>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* -------------------------
+       Dark theme with glassy earth vibe
+       ------------------------- */
+    :root{
+      --bg-primary: #0a0e1a;
+      --bg-secondary: #0f1420;
+      --glass-bg: rgba(15, 20, 32, 0.4);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-hover: rgba(255, 255, 255, 0.05);
+      
+      --text-primary: #e8edf4;
+      --text-secondary: #8b95a8;
+      --text-muted: #5a6475;
+      
+      --accent: #3b82f6;
+      --accent-light: #60a5fa;
+      --blue-dark: #1e3a8a;
+      --blue-deeper: #0c2556;
+      
+      --safe: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+      
+      --glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
+    }
+
+    /* -------------------------
+       Base / layout
+       ------------------------- */
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+    }
+    
+    html,body{
+      height:100%;
+      overflow-x:hidden;
+    }
+    
+    body{
+      font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background: radial-gradient(ellipse at top, #1a2332 0%, #0a0e1a 50%, #000000 100%);
+      color:var(--text-primary);
+      display:flex;
+      min-height:100vh;
+      position:relative;
+    }
+    
+    /* Animated background effect */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+      animation: drift 20s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    @keyframes drift {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      50% { transform: translate(30px, 30px) rotate(5deg); }
+    }
+
+    /* Sidebar */
+    .sidebar{
+      width:280px;
+      padding:32px 24px;
+      background: linear-gradient(180deg, rgba(15, 20, 32, 0.95), rgba(10, 14, 26, 0.98));
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--glass-border);
+      display:flex;
+      flex-direction:column;
+      gap:32px;
+      position:sticky;
+      top:0;
+      height:100vh;
+      z-index:10;
+    }
+    
+    .brand{
+      display:flex;
+      gap:16px;
+      align-items:center;
+    }
+    
+    .logo{
+      width:48px;
+      height:48px;
+      border-radius:12px;
+      background: linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%);
+      box-shadow: var(--glow-blue);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:800;
+      font-size:1.3rem;
+      color:white;
+      letter-spacing:-0.5px;
+    }
+    
+    .brand h1{
+      font-size:1.15rem; 
+      font-weight:700;
+      letter-spacing:-0.3px; 
+      color:#fff;
+      margin-bottom:2px;
+    }
+    
+    .brand p{
+      font-size:0.8rem; 
+      color: var(--text-secondary);
+      font-weight:500;
+    }
+
+    nav{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    
+    nav a{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      color: var(--text-secondary);
+      text-decoration:none;
+      padding:12px 16px;
+      border-radius:12px;
+      font-weight:600;
+      font-size:0.95rem;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    
+    nav a:hover{
+      background: var(--glass-hover);
+      color: var(--text-primary);
+      border-color: var(--glass-border);
+      transform:translateX(4px);
+    }
+    
+    nav a:first-child{
+      background: var(--glass-bg);
+      color: var(--accent-light);
+      border-color: var(--glass-border);
+    }
+
+    .sidebar-footer{
+      margin-top:auto;
+      padding-top:24px;
+      border-top:1px solid var(--glass-border);
+      font-size:0.8rem;
+      color: var(--text-muted);
+      line-height:1.6;
+    }
+    
+    .sidebar-footer strong{
+      color: var(--text-secondary);
+      display:block;
+      margin-bottom:4px;
+      font-weight:600;
+    }
+
+    /* Main wrapper */
+    .app{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      padding:32px;
+      gap:24px;
+      min-height:100vh;
+      position:relative;
+      z-index:1;
+    }
+
+    /* Header */
+    .header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:20px;
+      flex-wrap:wrap;
+    }
+    
+    .header-card{
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      padding:20px 24px;
+      border-radius:16px;
+      border: 1px solid var(--glass-border);
+      display:flex;
+      gap:16px;
+      align-items:center;
+      transition: all 0.3s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .header-card:hover{
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .title-block h2{
+      font-size:1.4rem; 
+      font-weight:700;
+      letter-spacing:-0.5px;
+      color:var(--text-primary);
+      margin-bottom:4px;
+    }
+    
+    .title-block p{
+      font-size:0.9rem; 
+      color:var(--text-secondary);
+      font-weight:500;
+    }
+
+    .controls{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    
+    .btn{
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border:1px solid var(--glass-border);
+      padding:10px 16px;
+      border-radius:12px;
+      cursor:pointer;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      color:var(--text-primary);
+      font-weight:600;
+      font-size:0.9rem;
+      transition: all 0.2s ease;
+      font-family:inherit;
+    }
+    
+    .btn:hover{
+      background: var(--glass-hover);
+      border-color: var(--accent);
+      transform:translateY(-2px);
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .theme-toggle{
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border:1px solid var(--glass-border);
+      padding:10px 16px;
+      border-radius:12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      cursor:pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .theme-toggle:hover{
+      background: var(--glass-hover);
+      border-color: var(--accent);
+    }
+
+    /* Status overview */
+    .status-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(200px,1fr));
+      gap:16px;
+    }
+    
+    .status{
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      padding:20px;
+      border-radius:16px;
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-sm);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      position:relative;
+      overflow:hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .status::before{
+      content:'';
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:4px;
+      background: linear-gradient(180deg, var(--color), transparent);
+    }
+    
+    .status:hover{
+      transform:translateY(-4px);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    .status .label{
+      font-size:0.85rem; 
+      color:var(--text-secondary);
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      margin-bottom:8px;
+    }
+    
+    .status .value{
+      font-weight:800; 
+      font-size:2rem; 
+      color:var(--text-primary);
+      letter-spacing:-1px;
+    }
+
+    .status.safe{ --color: var(--safe); }
+    .status.alert{ --color: var(--warning); }
+    .status.triggered{ --color: var(--danger); }
+
+    /* Main content: map + side panel */
+    .main-grid{
+      display:grid;
+      grid-template-columns: 2fr 1fr;
+      gap:24px;
+      align-items:start;
+    }
+
+    .card{
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      padding:24px;
+      border-radius:20px;
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-md);
+      transition: all 0.3s ease;
+    }
+    
+    .card:hover{
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .map-head{
+      display:flex; 
+      justify-content:space-between; 
+      align-items:center; 
+      gap:16px; 
+      margin-bottom:16px;
+      flex-wrap:wrap;
+    }
+    
+    .map-head strong{
+      font-size:1.15rem;
+      color:var(--text-primary);
+      font-weight:700;
+      letter-spacing:-0.3px;
+    }
+    
+    .map-head small{
+      color:var(--text-secondary);
+      font-size:0.88rem;
+      font-weight:500;
+    }
+    
+    #map{
+      height:520px; 
+      border-radius:16px;
+      border: 1px solid var(--glass-border);
+      overflow:hidden;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* Regions panel */
+    .regions-list{
+      display:flex; 
+      flex-direction:column; 
+      gap:12px; 
+      max-height:none; 
+      overflow:visible; 
+      padding-right:8px;
+    }
+    
+    .regions-list::-webkit-scrollbar{
+      width:6px;
+      display:none;
+    }
+    
+    .regions-list::-webkit-scrollbar-track{
+      background: var(--glass-bg);
+      border-radius:10px;
+    }
+    
+    .regions-list::-webkit-scrollbar-thumb{
+      background: var(--accent);
+      border-radius:10px;
+    }
+    
+    .region-card{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      padding:16px;
+      border-radius:14px;
+      cursor:pointer;
+      transition: all 0.25s ease;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      position:relative;
+      overflow:hidden;
+    }
+    
+    .region-card::before{
+      content:'';
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:4px;
+      background: var(--region-color);
+    }
+    
+    .region-card:hover{
+      transform:translateY(-4px);
+      box-shadow: var(--shadow-md);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .region-card.safe{ --region-color: var(--safe); }
+    .region-card.alert{ --region-color: var(--warning); }
+    .region-card.triggered{ --region-color: var(--danger); }
+
+    .region-head{
+      display:flex; 
+      justify-content:space-between; 
+      align-items:center;
+    }
+    
+    .region-name{
+      font-weight:700; 
+      color:var(--text-primary);
+      font-size:1.05rem;
+      letter-spacing:-0.2px;
+    }
+    
+    .badge{
+      padding:6px 12px; 
+      border-radius:8px; 
+      font-weight:700; 
+      font-size:0.7rem; 
+      color:white;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+    
+    .badge.safe{ background: var(--safe); }
+    .badge.alert{ background: var(--warning); }
+    .badge.triggered{ background: var(--danger); }
+
+    .metrics{
+      display:grid; 
+      grid-template-columns:repeat(2,1fr); 
+      gap:10px;
+    }
+    
+    .metric{
+      background: rgba(255, 255, 255, 0.06); 
+      padding:10px; 
+      border-radius:10px; 
+      font-weight:700; 
+      color:var(--text-primary);
+      font-size:1.05rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .metric small{
+      display:block; 
+      font-weight:600; 
+      color:var(--text-secondary); 
+      font-size:0.75rem;
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+
+    /* Detail panel */
+    .detail-panel{
+      margin-top:20px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:16px;
+    }
+    
+    .detail-header{
+      display:flex; 
+      justify-content:space-between; 
+      align-items:center;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    
+    .detail-header h3{
+      color:var(--text-primary);
+      font-size:1.2rem;
+      font-weight:700;
+      letter-spacing:-0.3px;
+    }
+    
+    .detail-header small{
+      color:var(--text-secondary);
+      font-weight:500;
+    }
+    
+    .detail-body{
+      display:grid; 
+      gap:16px;
+    }
+    
+    .detail-content{
+      padding:20px;
+      border-radius:14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    /* Chart */
+    .chart-wrap{
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      padding:20px; 
+      border-radius:16px;
+      border: 1px solid var(--glass-border);
+    }
+    
+    canvas{
+      max-width:100%; 
+      height:280px !important;
+    }
+
+    /* Footer */
+    .footer{
+      font-size:0.82rem; 
+      color:var(--text-muted); 
+      text-align:center; 
+      margin-top:12px;
+      font-weight:500;
+    }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .sidebar{display:none}
+      .main-grid{grid-template-columns:1fr}
+      #map{height:400px}
+      .regions-list{max-height:none}
+      .app{padding:20px}
+    }
+    
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper{
+      background: var(--glass-bg) !important;
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border) !important;
+      color: var(--text-primary) !important;
+      border-radius:12px !important;
+      box-shadow: var(--shadow-lg) !important;
+    }
+    
+    .leaflet-popup-tip{
+      background: var(--glass-bg) !important;
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="brand">
+      <div class="logo">EL</div>
+      <div>
+        <h1>Team EcoLens</h1>
+        <p>EO Climate Resilience</p>
+      </div>
+    </div>
+
+    <nav>
+      <a href="#" title="Dashboard"><i data-feather="home"></i> Dashboard</a>
+      <a href="#" title="Map"><i data-feather="map"></i> Regions</a>
+      <a href="#" title="Analytics"><i data-feather="bar-chart-2"></i> Analytics</a>
+      <a href="#" title="Settings"><i data-feather="settings"></i> Settings</a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <strong>Copernicus · Sentinel</strong>
+      Sentinel-1 / Sentinel-2<br>Climate Services
+    </div>
+  </aside>
+
+  <!-- App main -->
+  <main class="app" role="main">
+    <header class="header">
+      <div class="title-block header-card">
+        <div>
+          <h2>EO-Climate Resilience Dashboard</h2>
+          <p>Real-time monitoring of climate resilience tipping points</p>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px">
+        <div class="header-card" style="padding:12px 16px; gap:10px">
+          <i data-feather="globe" style="color:var(--accent)"></i>
+          <div style="font-weight:700; font-size:0.95rem; color:var(--text-primary)">Powered by Copernicus</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Status overview -->
+    <section class="status-grid">
+      <div class="status safe card">
+        <div>
+          <div class="label">Safe</div>
+          <div class="value" id="safeCount">1</div>
+        </div>
+        <i data-feather="check-circle" style="color:var(--safe); width:32px; height:32px"></i>
+      </div>
+      <div class="status alert card">
+        <div>
+          <div class="label">Alert</div>
+          <div class="value" id="alertCount">1</div>
+        </div>
+        <i data-feather="alert-triangle" style="color:var(--warning); width:32px; height:32px"></i>
+      </div>
+      <div class="status triggered card">
+        <div>
+          <div class="label">Triggered</div>
+          <div class="value" id="triggeredCount">1</div>
+        </div>
+        <i data-feather="bell" style="color:var(--danger); width:32px; height:32px"></i>
+      </div>
+    </section>
+
+    <!-- Map + Regions -->
+    <section class="main-grid">
+      <div class="card">
+        <div class="map-head">
+          <div>
+            <strong>Regional Overview Map</strong><br>
+            <small>Click a marker or a region card to view details</small>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center">
+            <button class="btn" id="zoomAllBtn"><i data-feather="zoom-in"></i> Zoom All</button>
+            <button class="btn" id="resetBtn" title="Reset view"><i data-feather="rotate-cw"></i></button>
+          </div>
+        </div>
+
+        <div id="map" aria-label="Map"></div>
+
+        <!-- detail panel -->
+        <div class="detail-panel">
+          <div class="detail-header">
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <h3 id="detailTitle">Select a region to view details</h3>
+              <small id="detailSubtitle">NDVI trend, indicators and actions</small>
+            </div>
+            <div id="detailActions" style="display:flex; gap:8px; align-items:center"></div>
+          </div>
+
+          <div class="detail-body">
+            <div class="detail-content" id="detailContent">
+              <div style="color:var(--text-muted)">No region selected.</div>
+            </div>
+
+            <!-- Chart area -->
+            <div class="chart-wrap card" id="chartCard" style="display:none">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px">
+                <div style="font-weight:700; color:var(--text-primary); font-size:1.05rem">NDVI Trend</div>
+                <div style="font-size:0.88rem; color:var(--text-secondary)">Bi-weekly · last 6 periods</div>
+              </div>
+              <canvas id="ndviChart" aria-label="NDVI trend chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: regions list -->
+      <aside class="card">
+        <strong style="color:var(--text-primary); display:block; margin-bottom:16px; font-size:1.1rem; letter-spacing:-0.3px">Regions</strong>
+        <div class="regions-list" id="regionsList" role="list"></div>
+
+        <div class="footer" style="margin-top:16px">Powered by Copernicus Sentinel-1/2 · Team EcoLens</div>
+      </aside>
+    </section>
+  </main>
+
+  <!-- Leaflet & Feather initializers -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+
+  <script>
+    // Initialize icons
+    feather.replace();
+
+    // --- Sample region dataset with NDVI time series (6 bi-weekly points) ---
+    const regions = [
+      {
+        id: 0,
+        name: "Central Luzon",
+        status: "safe",
+        lat: 15.4817,
+        lng: 120.7122,
+        ndvi: 0.68,
+        ndviThreshold: 0.55,
+        lst: 32.4,
+        lstThreshold: 38.5,
+        mangrove: 98.5,
+        subsidence: 2.1,
+        color: "#10b981",
+        description: "All climate resilience indicators within safe thresholds.",
+        ndviSeries: [0.72, 0.70, 0.69, 0.68, 0.67, 0.68]
+      },
+      {
+        id: 1,
+        name: "Eastern Visayas",
+        status: "alert",
+        lat: 11.2444,
+        lng: 125.0044,
+        ndvi: 0.52,
+        ndviThreshold: 0.55,
+        lst: 37.8,
+        lstThreshold: 38.5,
+        mangrove: 96.2,
+        subsidence: 4.2,
+        color: "#f59e0b",
+        description: "NDVI below threshold for two consecutive periods.",
+        alertMessage: "Next check in 14 days. Automatic trigger if below for 3 periods.",
+        ndviSeries: [0.58, 0.56, 0.54, 0.53, 0.52, 0.52]
+      },
+      {
+        id: 2,
+        name: "Mindanao",
+        status: "triggered",
+        lat: 7.1907,
+        lng: 125.4553,
+        ndvi: 0.48,
+        ndviThreshold: 0.55,
+        lst: 39.2,
+        lstThreshold: 38.5,
+        mangrove: 98.1,
+        subsidence: 3.5,
+        color: "#ef4444",
+        triggerType: "Agricultural Tipping Point",
+        triggerDetails: "NDVI below 10-year average for 3 consecutive bi-weekly periods.",
+        disbursementAmount: "₱2.4M",
+        beneficiaries: "1,200 smallholder farmers",
+        prb: "Agri-PRB #23: Drought-resistant seed distribution",
+        ndviSeries: [0.54, 0.52, 0.50, 0.49, 0.48, 0.48]
+      }
+    ];
+
+    // Update counts
+    document.getElementById('safeCount').textContent = regions.filter(r=>r.status==='safe').length;
+    document.getElementById('alertCount').textContent = regions.filter(r=>r.status==='alert').length;
+    document.getElementById('triggeredCount').textContent = regions.filter(r=>r.status==='triggered').length;
+
+    // --- Initialize map ---
+    const map = L.map('map', { zoomControl: true }).setView([12.8797, 121.7740], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors, © CARTO',
+      maxZoom: 19
+    }).addTo(map);
+
+    const markers = [];
+    regions.forEach((r, idx) => {
+      const circle = L.circleMarker([r.lat, r.lng], {
+        radius: 14,
+        fillColor: r.color,
+        color: '#fff',
+        weight: 2,
+        fillOpacity: 0.85
+      }).addTo(map);
+
+      circle.bindPopup(`
+        <div style="min-width:200px; font-family:inherit">
+          <strong style="color:${r.color}; font-size:1.05rem">${r.name}</strong><br>
+          <small style="color:var(--text-secondary); text-transform:uppercase; font-weight:600; letter-spacing:0.5px">Status: ${r.status}</small><br>
+          <div style="margin-top:12px"><button onclick="selectRegion(${idx})" style="width:100%; padding:10px; border-radius:10px; border:none; background:${r.color}; color:white; font-weight:700; cursor:pointer; font-family:inherit; font-size:0.9rem">View Details</button></div>
+        </div>
+      `, { closeButton: true });
+
+      circle.on('click', ()=> selectRegion(idx) );
+      markers.push(circle);
+    });
+
+    // Zoom all button
+    document.getElementById('zoomAllBtn').addEventListener('click', ()=>{
+      const group = new L.featureGroup(markers);
+      map.fitBounds(group.getBounds().pad(0.6));
+    });
+
+    // Reset view
+    document.getElementById('resetBtn').addEventListener('click', ()=> {
+      map.setView([12.8797, 121.7740], 6);
+    });
+
+    // --- Populate regions list ---
+    const regionsList = document.getElementById('regionsList');
+    regions.forEach((r, idx) => {
+      const el = document.createElement('div');
+      el.className = `region-card ${r.status}`;
+      el.setAttribute('role','listitem');
+      el.innerHTML = `
+        <div class="region-head">
+          <div class="region-name">${r.name}</div>
+          <div class="badge ${r.status}">${r.status}</div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><small>🌿 NDVI</small><div>${r.ndvi}</div></div>
+          <div class="metric"><small>🌡️ LST</small><div>${r.lst}°C</div></div>
+          <div class="metric"><small>💧 Mangrove</small><div>${r.mangrove}%</div></div>
+          <div class="metric"><small>📏 Subsidence</small><div>${r.subsidence} mm/yr</div></div>
+        </div>`;
+      el.addEventListener('click', ()=> selectRegion(idx));
+      regionsList.appendChild(el);
+    });
+
+    // --- Chart.js setup ---
+    const chartCtx = document.getElementById('ndviChart').getContext('2d');
+    const ndviChart = new Chart(chartCtx, {
+      type: 'line',
+      data: {
+        labels: ['-10w','-8w','-6w','-4w','-2w','now'],
+        datasets: [{
+          label: 'NDVI',
+          data: [],
+          fill: true,
+          tension: 0.4,
+          borderWidth: 3,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          pointBackgroundColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          y: {
+            beginAtZero: false,
+            suggestedMin: 0,
+            suggestedMax: 1,
+            ticks: { 
+              callback: v => v.toFixed(2),
+              color: '#8b95a8',
+              font: { family: 'Inter', weight: '600' }
+            },
+            grid: { color: 'rgba(255,255,255,0.05)' }
+          },
+          x: {
+            ticks: { 
+              color: '#8b95a8',
+              font: { family: 'Inter', weight: '600' }
+            },
+            grid: { color: 'rgba(255,255,255,0.05)' }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(15, 20, 32, 0.95)',
+            titleColor: '#e8edf4',
+            bodyColor: '#e8edf4',
+            borderColor: 'rgba(59, 130, 246, 0.5)',
+            borderWidth: 1,
+            padding: 12,
+            displayColors: false,
+            titleFont: { family: 'Inter', weight: '700', size: 13 },
+            bodyFont: { family: 'Inter', weight: '600', size: 12 }
+          }
+        }
+      }
+    });
+
+    // Helper to style chart for region color
+    function styleChartFor(region){
+      ndviChart.data.datasets[0].borderColor = region.color;
+      ndviChart.data.datasets[0].backgroundColor = hexToRgba(region.color, 0.15);
+      ndviChart.data.datasets[0].pointBorderColor = region.color;
+      ndviChart.update();
+    }
+
+    // small util
+    function hexToRgba(hex, alpha){
+      const h = hex.replace('#','');
+      const bigint = parseInt(h,16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    // --- selectRegion: populate detail panel and update chart ---
+    function selectRegion(index){
+      const r = regions[index];
+      // title and subtitle
+      document.getElementById('detailTitle').textContent = `${r.name} — ${r.status.toUpperCase()}`;
+      document.getElementById('detailSubtitle').textContent = `Latest NDVI: ${r.ndvi} · LST: ${r.lst}°C`;
+
+      // detail content
+      const detailContent = document.getElementById('detailContent');
+      let html = '';
+      if(r.status === 'triggered'){
+        html = `
+          <div style="display:flex; flex-direction:column; gap:12px">
+            <div style="font-weight:800; color:${r.color}; font-size:1.1rem">${r.triggerType ?? 'Trigger'}</div>
+            <div style="color:var(--text-secondary); line-height:1.6">${r.triggerDetails ?? 'Triggered condition met'}</div>
+
+            <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap">
+              <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:12px; min-width:160px; border:1px solid var(--glass-border)">
+                <small style="color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; font-size:0.75rem">Disbursement</small>
+                <div style="font-weight:800; margin-top:6px; font-size:1.2rem">${r.disbursementAmount ?? '—'}</div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03); padding:14px; border-radius:12px; min-width:160px; border:1px solid var(--glass-border)">
+                <small style="color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; font-size:0.75rem">Beneficiaries</small>
+                <div style="font-weight:800; margin-top:6px; font-size:1.2rem">${r.beneficiaries ?? '—'}</div>
+              </div>
+            </div>
+
+            <div style="margin-top:8px; padding:14px; background:rgba(255,255,255,0.03); border-radius:12px; border:1px solid var(--glass-border)">
+              <small style="color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; font-size:0.75rem">PRB</small>
+              <div style="font-weight:700; margin-top:6px">${r.prb ?? '—'}</div>
+            </div>
+          </div>
+        `;
+      } else if(r.status === 'alert'){
+        html = `
+          <div>
+            <div style="font-weight:800; color:${r.color}; font-size:1.1rem">Monitoring Alert</div>
+            <div style="color:var(--text-secondary); margin-top:8px; line-height:1.6">${r.description ?? ''}</div>
+            <div style="margin-top:12px; color:var(--text-secondary); font-size:0.9rem"><small>${r.alertMessage ?? ''}</small></div>
+          </div>
+        `;
+      } else {
+        html = `
+          <div>
+            <div style="font-weight:800; color:${r.color}; font-size:1.1rem">Normal Operations</div>
+            <div style="color:var(--text-secondary); margin-top:8px; line-height:1.6">${r.description ?? ''}</div>
+          </div>
+        `;
+      }
+      detailContent.innerHTML = html;
+
+      // Show chart and update data
+      document.getElementById('chartCard').style.display = 'block';
+      ndviChart.data.datasets[0].data = r.ndviSeries.slice();
+      styleChartFor(r);
+
+      // create quick CTA buttons in detail header
+      const actions = document.getElementById('detailActions');
+      actions.innerHTML = '';
+      if(r.status === 'triggered'){
+        const btn1 = document.createElement('button'); 
+        btn1.className = 'btn'; 
+        btn1.innerHTML = '<i data-feather="check"></i> Mark Disbursed';
+        btn1.style.background = r.color; 
+        btn1.style.color = '#fff'; 
+        btn1.style.borderColor = r.color;
+        btn1.addEventListener('click', ()=> alert('Marked as disbursed (demo)'));
+        
+        const btn2 = document.createElement('button'); 
+        btn2.className = 'btn'; 
+        btn2.innerHTML = '<i data-feather="file-text"></i> Open PRB';
+        btn2.addEventListener('click', ()=> alert('Open PRB (demo)'));
+        
+        actions.appendChild(btn1); 
+        actions.appendChild(btn2);
+        feather.replace();
+      } else {
+        const btn = document.createElement('button'); 
+        btn.className = 'btn'; 
+        btn.innerHTML = '<i data-feather="edit-3"></i> Add Note';
+        btn.addEventListener('click', ()=> alert('Add note (demo)'));
+        actions.appendChild(btn);
+        feather.replace();
+      }
+
+      // Pan map to region
+      map.panTo([r.lat, r.lng], {animate:true, duration:0.6});
+    }
+
+    // Expose selectRegion so popup buttons can call it
+    window.selectRegion = selectRegion;
+
+    // Select triggered region on load (Mindanao)
+    window.addEventListener('load', ()=> {
+      const triggeredIdx = regions.findIndex(r=>r.status==='triggered');
+      selectRegion(triggeredIdx >= 0 ? triggeredIdx : 0);
+    });
+  </script>
+</body>
+</html>
